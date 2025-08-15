@@ -13,6 +13,12 @@ interface HealthStatus {
   version?: string;
 }
 
+interface ErrorResponse {
+  status: 'unhealthy';
+  timestamp: string;
+  error: string;
+}
+
 class HealthService {
   static getHealthStatus(): HealthStatus {
     return {
@@ -35,7 +41,8 @@ class CorsService {
     };
   }
 
-  static createCorsResponse(data: any, status: number = 200): NextResponse {
+  // Fixed: Replace 'any' with proper union type
+  static createCorsResponse(data: HealthStatus | ErrorResponse, status: number = 200): NextResponse {
     return NextResponse.json(data, {
       status,
       headers: {
@@ -48,24 +55,29 @@ class CorsService {
 }
 
 // Handle preflight OPTIONS request
-export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+// Fixed: Remove unused 'request' parameter
+export async function OPTIONS(): Promise<NextResponse> {
   return new NextResponse(null, {
     status: 200,
     headers: CorsService.getCorsHeaders()
   });
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+// Fixed: Remove unused 'request' parameter and properly type error
+export async function GET(): Promise<NextResponse> {
   try {
     const healthStatus = HealthService.getHealthStatus();
     
     return CorsService.createCorsResponse(healthStatus, 200);
-  } catch (error) {
+  } catch (error: unknown) {
+    // Properly handle the error with type safety
+    const errorMessage = error instanceof Error ? error.message : 'Health check failed';
+    
     return CorsService.createCorsResponse(
       {
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
-        error: 'Health check failed'
+        error: errorMessage
       },
       500
     );
